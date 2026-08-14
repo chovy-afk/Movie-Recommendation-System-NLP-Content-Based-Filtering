@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reel — Movie Recommender</title>
+<style>
+  :root {
+    --bg: #0b0c10;
+    --bg-panel: #14161c;
+    --line: #23262f;
+    --text: #eef0f3;
+    --text-dim: #8a8f9c;
+    --accent: #e0483e;
+    --accent-dim: #7a2b26;
+    --font-display: 'Bebas Neue', 'Arial Narrow', sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  header {
+    padding: 48px 24px 32px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .logo {
+    font-family: var(--font-display);
+    font-size: 56px;
+    letter-spacing: 4px;
+    margin: 0;
+    background: linear-gradient(180deg, #fff, #b8bcc5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo span { color: var(--accent); -webkit-text-fill-color: var(--accent); }
+
+  .tagline {
+    color: var(--text-dim);
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 14px 18px;
+    font-size: 16px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  button:hover { background: #c93c33; }
+  button:disabled { background: var(--accent-dim); cursor: not-allowed; }
+
+  .hint {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 32px;
+  }
+
+  .status {
+    padding: 14px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 24px;
+    display: none;
+  }
+
+  .status.error { display: block; background: #2a1414; border: 1px solid #4a2020; color: #ff8a80; }
+  .status.loading { display: block; background: var(--bg-panel); border: 1px solid var(--line); color: var(--text-dim); }
+
+  .selected-movie {
+    display: none;
+    align-items: flex-start;
+    gap: 20px;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 32px;
+  }
+
+  .selected-movie.show { display: flex; }
+
+  .selected-movie img {
+    width: 100px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .selected-movie h2 {
+    margin: 0 0 4px;
+    font-size: 22px;
+  }
+
+  .selected-movie .year {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .providers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .provider-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 6px 14px 6px 6px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 13px;
+    transition: border-color 0.15s;
+  }
+
+  .provider-chip:hover { border-color: var(--accent); }
+
+  .provider-chip img {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+  }
+
+  .no-providers {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .section-label {
+    font-family: var(--font-display);
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin: 0 0 16px;
+    text-transform: uppercase;
+  }
+
+  .rec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+  }
+
+  .rec-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+
+  .rec-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .rec-card .num {
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  .rec-card .title {
+    margin-top: 6px;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 24px;
+    border-top: 1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<header>
+  <h1 class="logo">REE<span>L</span></h1>
+  <div class="tagline">Content-based movie recommendations</div>
+</header>
+
+<main>
+  <div class="search-row">
+    <input type="text" id="movieInput" placeholder="Enter a movie title, e.g. Toy Story" autocomplete="off">
+    <button id="searchBtn">Find</button>
+  </div>
+  <div class="hint">Title must match the dataset exactly (case-sensitive) — try "Toy Story", "Jumanji", "Heat".</div>
+
+  <div class="status" id="status"></div>
+
+  <div class="selected-movie" id="selectedMovie">
+    <img id="selectedPoster" src="" alt="">
+    <div style="flex:1">
+      <h2 id="selectedTitle"></h2>
+      <div class="year" id="selectedYear"></div>
+      <div class="providers" id="providers"></div>
+    </div>
+  </div>
+
+  <div id="recSection" style="display:none">
+    <h3 class="section-label">Similar movies</h3>
+    <div class="rec-grid" id="recGrid"></div>
+  </div>
+</main>
+
+<footer>Watch-provider data via TMDB / JustWatch. Links go to each provider's own site — not a direct play link.</footer>
+
+<script>
+  const API_KEY = "siddhaant2026"; // must match APP_API_KEY on the server — see README
+  const API_BASE = "";
+
+  const input = document.getElementById("movieInput");
+  const searchBtn = document.getElementById("searchBtn");
+  const statusEl = document.getElementById("status");
+  const selectedMovie = document.getElementById("selectedMovie");
+  const recSection = document.getElementById("recSection");
+  const recGrid = document.getElementById("recGrid");
+
+  function setStatus(msg, type) {
+    statusEl.textContent = msg;
+    statusEl.className = "status " + (type || "");
+  }
+
+  function clearStatus() {
+    statusEl.className = "status";
+  }
+
+  async function search(title) {
+    if (!title.trim()) return;
+    clearStatus();
+    selectedMovie.classList.remove("show");
+    recSection.style.display = "none";
+    setStatus("Searching...", "loading");
+    searchBtn.disabled = true;
+
+    try {
+      const [recRes, watchRes] = await Promise.allSettled([
+        fetch(`${API_BASE}/api/recommend?title=${encodeURIComponent(title)}&n=10`, {
+          headers: { "X-API-Key": API_KEY }
+        }),
+        fetch(`${API_BASE}/api/watch?title=${encodeURIComponent(title)}`, {
+          headers: { "X-API-Key": API_KEY }
+        })
+      ]);
+
+      let recData = null, watchData = null;
+
+      if (recRes.status === "fulfilled" && recRes.value.ok) {
+        recData = await recRes.value.json();
+      } else if (recRes.status === "fulfilled") {
+        const err = await recRes.value.json();
+        setStatus(err.detail || "Movie not found in dataset", "error");
+        return;
+      }
+
+      if (watchRes.status === "fulfilled" && watchRes.value.ok) {
+        watchData = await watchRes.value.json();
+      }
+
+      clearStatus();
+
+      if (watchData) {
+        showSelectedMovie(watchData);
+      }
+
+      if (recData) {
+        showRecommendations(recData.recommendations);
+      }
+    } catch (e) {
+      setStatus("Couldn't reach the API — is the server running?", "error");
+    } finally {
+      searchBtn.disabled = false;
+    }
+  }
+
+  function showSelectedMovie(data) {
+    document.getElementById("selectedPoster").src = data.poster || "";
+    document.getElementById("selectedTitle").textContent = data.title;
+    document.getElementById("selectedYear").textContent = data.year || "";
+
+    const providersEl = document.getElementById("providers");
+    providersEl.innerHTML = "";
+
+    const all = [...(data.streaming || []), ...(data.rent || []), ...(data.buy || [])];
+
+    if (all.length === 0) {
+      providersEl.innerHTML = `<div class="no-providers">No streaming info found for this title in ${data.region}.</div>`;
+    } else {
+      all.forEach(p => {
+        const a = document.createElement("a");
+        a.className = "provider-chip";
+        a.href = p.search_url || data.tmdb_watch_page || "#";
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.innerHTML = `<img src="${p.logo}" alt=""><span>${p.name}</span>`;
+        providersEl.appendChild(a);
+      });
+    }
+
+    selectedMovie.classList.add("show");
+  }
+
+  function showRecommendations(list) {
+    recGrid.innerHTML = "";
+    list.forEach((title, i) => {
+      const card = document.createElement("div");
+      card.className = "rec-card";
+      card.innerHTML = `<div class="num">${String(i + 1).padStart(2, "0")}</div><div class="title">${title}</div>`;
+      card.onclick = () => {
+        input.value = title;
+        search(title);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+      recGrid.appendChild(card);
+    });
+    recSection.style.display = "block";
+  }
+
+  searchBtn.addEventListener("click", () => search(input.value));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") search(input.value); });
+</script>
+</body>
+</html>
